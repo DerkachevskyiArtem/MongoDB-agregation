@@ -2,10 +2,10 @@ db.createCollection('authors', {
   validator: {
     $jsonSchema: {
       bsonType: 'object',
-      required: ['fullName', 'birthDate', 'languages', 'contacts'],
+      required: ['fullName', 'birthday', 'languages', 'contacts'],
       properties: {
         fullName: { bsonType: 'string', description: "Author's full name" },
-        birthDate: { bsonType: 'date', description: "Author's birth date" },
+        birthday: { bsonType: 'date', description: "Author's birth date" },
         languages: {
           bsonType: 'array',
           items: { bsonType: 'string' },
@@ -63,7 +63,7 @@ db.createCollection('books', {
 db.authors.insertMany([
   {
     fullName: 'George Orwell',
-    birthDate: new Date('1903-06-25'),
+    birthday: new Date('1903-06-25'),
     languages: ['English'],
     contacts: {
       email: 'orwell@example.com',
@@ -73,7 +73,7 @@ db.authors.insertMany([
   },
   {
     fullName: 'J.K. Rowling',
-    birthDate: new Date('1965-07-31'),
+    birthday: new Date('1965-07-31'),
     languages: ['English'],
     contacts: {
       email: 'rowling@example.com',
@@ -122,7 +122,6 @@ db.books.insertMany([
   },
 ]);
 
-
 db.authors.aggregate([
   {
     $lookup: {
@@ -133,10 +132,26 @@ db.authors.aggregate([
     },
   },
   {
-    $project: {
-      fullName: 1,
-      birthDate: 1,
-      bookCount: { $size: '$books' },
+    $unwind: {
+      path: '$books',
+      preserveNullAndEmptyArrays: false,
+    },
+  },
+  {
+    $group: {
+      _id: {
+        fullName: '$fullName',
+        id: '$_id',
+      },
+      bookCount: {
+        $sum: 1,
+      },
+    },
+  },
+  {
+    $sort: {
+      bookCount: -1,
+      '_id.fullName': 1,
     },
   },
 ]);
@@ -151,23 +166,28 @@ db.books.aggregate([
     },
   },
   {
-    $unwind: '$author',
-  },
-  {
-    $project: {
-      title: 1,
-      genre: 1,
-      pages: 1,
-      language: 1,
-      year: 1,
-      synopsis: 1,
-      'author.fullName': 1,
-      'author.contacts': 1,
+    $unwind: {
+      path: '$author',
+      preserveNullAndEmptyArrays: false,
     },
   },
 ]);
 
-db.books.countDocuments({
-  language: 'English',
-  year: 2021,
-});
+db.books.aggregate([
+  {
+    $match: {
+      language: 'English',
+      year: 2021,
+    },
+  },
+  {
+    $group: {
+      _id: null,
+      bookCount: {
+        $sum: 1,
+      },
+    },
+  },
+]);
+
+// $project ?
